@@ -3,8 +3,11 @@ import './header.css';
 export default function Header() {
 
     return (
-        <div className='flex justify-between items-center pl-14 pr-14'>
-            <img src="assets/logo.png" alt="" />
+        <div className='flex justify-between items-center px-14'>
+            <a href="/">
+                <img src="assets/logo.png" alt="" />
+            </a>
+
             <div className='flex w-60 items-center justify-between'>
                 <a href="/">Главная</a>
                 <a href="/">Тарифы</a>
