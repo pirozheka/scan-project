@@ -1,12 +1,11 @@
 export default function SliderCard({iconSrc, text}) {
 
     return (
-        <div className="flex flex-col">
+        <div className="flex flex-col px-5 py-8 max-w-[400px] shadow-custom rounded-lg">
             <div>
-                <img src={iconSrc} alt="" />
-                <p>{text}</p>
-            </div>
-            
+                <img src={iconSrc} alt="" className="w-16 h-16"/>
+                <p className="mt-5 text-lg leading-none font-[400]">{text}</p>
+            </div>       
         </div>
     );
 }

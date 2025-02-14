@@ -17,7 +17,7 @@ const sliderData = [
 
 export default function Slider() {
   return (
-    <div className="flex">
+    <div className="flex mt-[70px] justify-between mx-6">
       {sliderData.map((item, index) => (
         <SliderCard key={index} iconSrc={item.iconSrc} text={item.text} />
       ))}

@@ -9,6 +9,7 @@ export default function Pricing() {
             iconSrc: 'assets/lamp.png',
             isCurrent: 'True',
             currentPrice: 799,
+            color: 'orange',
             oldPrice: 1299,
             creditDescription: 'или 150 ₽/мес. при рассрочке на 24 мес.',
             tariffOptions: [
@@ -23,6 +24,7 @@ export default function Pricing() {
             iconSrc: 'assets/goal.png',
             isCurrent: 'False',
             currentPrice: 1299,
+            color: 'lightAqua',
             oldPrice: 2600,
             creditDescription: 'или 279 ₽/мес. при рассрочке на 24 мес.',
             tariffOptions: [
@@ -37,6 +39,7 @@ export default function Pricing() {
             iconSrc: 'assets/laptop.png',
             isCurrent: 'False',
             currentPrice: 2379,
+            color: 'black',
             oldPrice: 3700,
             creditDescription: ' ',
             tariffOptions: [
@@ -47,8 +50,9 @@ export default function Pricing() {
         }
     ]
     return (
-        <div>
-            <div className="flex">
+        <div className='mt-24 px-14'>
+            <h2 className='font-ferry font-bold text-5xl'>Наши тарифы</h2>
+            <div className="flex mt-[70px]">
                 {pricingData.map((item, index) => (
                     <PricingCard key={index} props={item}/>
                 ))}

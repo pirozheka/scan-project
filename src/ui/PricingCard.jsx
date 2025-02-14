@@ -1,8 +1,8 @@
 export default function PricingCard({props}) {
 
     return (
-        <div className="flex flex-col">
-          <div>
+        <div className="flex flex-col rounded-lg ">
+          <div className={`rounded-lg bg-${props.color} px-7 py-7`}>
             <div>
               <p>{props.title}</p>
               <p>{props.subtitle}</p>
