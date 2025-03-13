@@ -1,3 +1,7 @@
+import { Swiper, SwiperSlide } from "swiper/react";
+import "swiper/css";
+import "swiper/css/navigation";
+import { Navigation } from "swiper/modules";
 import SliderCard from "./SliderCard";
 
 const sliderData = [
@@ -11,16 +15,30 @@ const sliderData = [
   },
   {
     iconSrc: 'assets/lock.png',
-    text: 'Защита конфеденциальных сведений, не подлежащих разглашению по федеральному законодательству'
+    text: 'Защита конфиденциальных сведений, не подлежащих разглашению по федеральному законодательству'
   }
 ];
 
 export default function Slider() {
   return (
-    <div className="flex mt-[70px] justify-between mx-6">
-      {sliderData.map((item, index) => (
-        <SliderCard key={index} iconSrc={item.iconSrc} text={item.text} />
-      ))}
+    <div className="relative mt-[70px] px-6 flex justify-center h-64">
+      <Swiper 
+        height={100}
+        modules={[Navigation]}
+        slidesPerView={1}
+        spaceBetween={5}
+        breakpoints={{
+          780: { slidesPerView: 2, spaceBetween: 10},
+          1024: { slidesPerView: 3, spaceBetween: 20}
+        }}
+        navigation
+      >
+        {sliderData.map((item, index) => (
+          <SwiperSlide key={index} className="flex justify-center items-center">
+            <SliderCard iconSrc={item.iconSrc} text={item.text} />
+          </SwiperSlide>
+        ))}
+      </Swiper>
     </div>
   );
 }

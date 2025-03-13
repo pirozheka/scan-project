@@ -4,9 +4,9 @@ export default function Footer() {
         <div className="bg-aqua text-[white]">
             <div className="px-14 flex justify-between">
                 <a href="/">
-                    <img src="assets/logo.png" alt="" />
+                    <img src="assets/logo-footer.png" alt="" />
                 </a>
-                <div>
+                <div className="mt-5">
                     <p>г. Москва, Цветной б-р, 40</p>
                     <p>+7 495 771 21 11</p>
                     <p>info@skan.ru</p>
