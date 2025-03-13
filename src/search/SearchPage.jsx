@@ -74,9 +74,7 @@ export default function SearchPage() {
 
     // Проверяем, что все обязательные поля заполнены и нет ошибок
     const isFormValid = () => {
-        // Обязательные поля: ИНН, Тональность, Кол-во документов, Дата начала и конца
         if (!inn || !tonality || !documentCount || !dateFrom || !dateTo) return false;
-        // Ошибки
         if (innError || countError || dateError) return false;
         return true;
     };
@@ -85,41 +83,81 @@ export default function SearchPage() {
     // Обработка отправки
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!isFormValid()) return; // защита от обхода
-
-        // Готовим данные для запроса
+        if (!isFormValid()) return;
+      
+        // Форматируем даты: из "YYYY-MM-DD" добавляем время и часовой пояс.
+        const formattedDateFrom = dateFrom + "T00:00:00+03:00";
+        const formattedDateTo = dateTo + "T23:59:59+03:00";
+      
         const requestData = {
-            inn,
-            maxFullness,
-            inBusinessNews,
-            mainRole,
-            tonality,
-            onlyWithRiskFactors,
-            techNews,
-            announcements,
-            newsDigests,
-            documentCount,
-            dateFrom,
-            dateTo,
+          issueDateInterval: {
+            startDate: formattedDateFrom,
+            endDate: formattedDateTo,
+          },
+          searchContext: {
+            targetSearchEntitiesContext: {
+              targetSearchEntities: [
+                {
+                  type: "company",
+                  inn: Number(inn),
+                  maxFullness: maxFullness,
+                  inBusinessNews: inBusinessNews,
+                  sparkId: null,
+                  entityId: null,
+                },
+              ],
+              onlyMainRole: mainRole,
+              tonality: tonality,
+              onlyWithRiskFactors: onlyWithRiskFactors,
+            },
+            themesFilter: {
+              and: [],
+              or: [],
+              not: [],
+            },
+          },
+          searchArea: {
+            includedSources: [],
+            excludedSources: [],
+            includedSourceGroups: [],
+            excludedSourceGroups: [],
+          },
+          attributeFilters: {
+            excludeTechNews: !techNews,
+            excludeAnnouncements: !announcements,
+            excludeDigests: !newsDigests,
+          },
+          similarMode: "duplicates",
+          limit: Number(documentCount),
+          sortType: "sourceInfluence",
+          sortDirectionType: "desc",
+          intervalType: "month",
+          histogramTypes: ["totalDocuments", "riskFactors"],
         };
-
+      
         try {
-            const response = await fetch("https://gateway.scan-interfax.ru/api/v1/objectsearch/histograms", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` },
-                body: JSON.stringify(requestData),
-            });
-
-            if (response.ok) {
-                navigate("/search/results");
-            } else {
-                // Обработка ошибки
-                console.error("Ошибка при поиске:", response.statusText);
+          const response = await fetch(
+            "https://gateway.scan-interfax.ru/api/v1/objectsearch/histograms",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+              },
+              body: JSON.stringify(requestData),
             }
+          );
+      
+          if (response.ok) {
+            navigate("/search/results", { state: { searchParams: requestData } });
+          } else {
+            console.error("Ошибка при поиске:", response.statusText);
+          }
         } catch (err) {
-            console.error("Ошибка при поиске:", err);
+          console.error("Ошибка при поиске:", err);
         }
-    };
+      };
 
     return (
         <div className="flex flex-col items-left py-10 px-4 md:px-20">
