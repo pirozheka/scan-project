@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useUser } from "../context/UserContext";
+
+const API_URL = "https://gateway.scan-interfax.ru/api/v1";
+const LOAD_INCREMENT = 10;
 
 export default function SearchResults() {
   const { isLoggedIn } = useUser();
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Состояния для сводки, списка ID публикаций и загруженных документов
   const [isLoading, setIsLoading] = useState(true);
   const [summaryData, setSummaryData] = useState(null);
   const [publicationIds, setPublicationIds] = useState([]);
@@ -15,96 +17,94 @@ export default function SearchResults() {
   const [isLoadingDocs, setIsLoadingDocs] = useState(false);
   const [error, setError] = useState(null);
   const [loadedCount, setLoadedCount] = useState(0);
-  const loadIncrement = 10;
 
-  // Получаем параметры поиска, переданные из формы (через location.state)
   const searchParams = location.state?.searchParams;
 
-  // Если пользователь не авторизован, редирект на страницу авторизации
+  const cleanAndTruncate = (text, maxLength = 640) => {
+    const cleanedText = text.replace(/<[^>]*>/g, '');
+    if (cleanedText.length <= maxLength) return cleanedText;
+    return `${cleanedText.substring(0, maxLength).trim()}…`;
+  };
+
+  // Проверка авторизации
   useEffect(() => {
-    if (!isLoggedIn) {
-      navigate("/auth");
-    }
+    if (!isLoggedIn) navigate("/auth");
   }, [isLoggedIn, navigate]);
 
-  // Запрос сводки и списка ID публикаций
-  useEffect(() => {
-    const fetchSummaryAndIds = async () => {
-      if (!searchParams) {
-        setError("Параметры поиска отсутствуют");
-        setIsLoading(false);
-        return;
-      }
-      setError(null);
-      setIsLoading(true);
-      try {
-        // 1. Получаем сводку публикаций
-        const histResponse = await fetch(
-          "https://gateway.scan-interfax.ru/api/v1/objectsearch/histograms",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${localStorage.getItem("accessToken")}`
-            },
-            body: JSON.stringify(searchParams)
-          }
-        );
-        if (!histResponse.ok) throw new Error("Ошибка при получении сводки");
-        const histData = await histResponse.json();
-        setSummaryData(histData);
+  const fetchData = useCallback(async () => {
+    if (!searchParams) {
+      setError("Параметры поиска отсутствуют");
+      setIsLoading(false);
+      return;
+    }
 
-        // 2. Получаем список ID публикаций
-        const idsResponse = await fetch(
-          "https://gateway.scan-interfax.ru/api/v1/objectsearch",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${localStorage.getItem("accessToken")}`
-            },
-            body: JSON.stringify(searchParams)
-          }
-        );
-        if (!idsResponse.ok) throw new Error("Ошибка при получении списка публикаций");
-        const idsData = await idsResponse.json();
-        const ids = idsData.items.map(item => item.encodedId);
-        setPublicationIds(ids);
+    setIsLoading(true);
+    setError(null);
 
-        // 3. Загружаем первые 10 документов
-        await loadMoreDocuments(ids, 0);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    try {
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+      };
 
-    fetchSummaryAndIds();
+      // Запрос сводки
+      const histResponse = await fetch(`${API_URL}/objectsearch/histograms`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(searchParams),
+      });
+      if (!histResponse.ok) throw new Error("Ошибка при получении сводки");
+
+      const histData = await histResponse.json();
+      setSummaryData(histData);
+
+      // Запрос списка ID
+      const idsResponse = await fetch(`${API_URL}/objectsearch`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(searchParams),
+      });
+      if (!idsResponse.ok) throw new Error("Ошибка при получении списка публикаций");
+
+      const idsData = await idsResponse.json();
+      const ids = idsData.items.map((item) => item.encodedId);
+      setPublicationIds(ids);
+
+      await loadDocuments(ids, 0);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   }, [searchParams]);
 
-  const loadMoreDocuments = async (idsArray, currentCount) => {
-    const nextIds = idsArray.slice(currentCount, currentCount + loadIncrement);
-    if (nextIds.length === 0) return;
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const loadDocuments = async (idsArray, offset) => {
+    const nextIds = idsArray.slice(offset, offset + LOAD_INCREMENT);
+    if (!nextIds.length) return;
+
     setIsLoadingDocs(true);
+
     try {
-      const docsResponse = await fetch(
-        "https://gateway.scan-interfax.ru/api/v1/documents",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${localStorage.getItem("accessToken")}`
-          },
-          body: JSON.stringify({ ids: nextIds })
-        }
-      );
-      if (!docsResponse.ok) throw new Error("Ошибка при получении документов");
-      const docsData = await docsResponse.json();
-      // Фильтруем только успешные результаты (поле ok)
-      const okDocs = docsData.filter(doc => doc.ok).map(doc => doc.ok);
-      setDocuments(prev => [...prev, ...okDocs]);
-      setLoadedCount(currentCount + nextIds.length);
+      const response = await fetch(`${API_URL}/documents`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+        },
+        body: JSON.stringify({ ids: nextIds }),
+      });
+
+      if (!response.ok) throw new Error("Ошибка при получении документов");
+
+      const docsData = await response.json();
+      const okDocs = docsData.filter((doc) => doc.ok).map((doc) => doc.ok);
+
+      setDocuments((prevDocs) => [...prevDocs, ...okDocs]);
+      setLoadedCount(offset + nextIds.length);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -112,76 +112,118 @@ export default function SearchResults() {
     }
   };
 
-  const handleLoadMore = () => {
-    loadMoreDocuments(publicationIds, loadedCount);
-  };
+  const handleLoadMore = () => loadDocuments(publicationIds, loadedCount);
 
   return (
     <div className="p-4">
-      {isLoading && (
-        <div>
-          <h2>Ищем. Скоро будут результаты...</h2>
-        </div>
-      )}
+      <h2 className="font-ferry text-5xl block w-5/12 mb-8">Ищем. Скоро будут результаты</h2>
+      <p className="text-xl mb-8">Поиск может занять некоторое время, просим сохранять терпение.</p>
 
-      {error && <div style={{ color: "red" }}>{error}</div>}
+      {error && <div className="text-red">{error}</div>}
 
       {summaryData && (
-        <div className="mb-4">
-          <h2>Сводка поиска</h2>
-          {summaryData.data.map((hist, idx) => (
-            <div key={idx} className="mb-2">
-              <h3>{hist.histogramType}</h3>
-              <div className="flex overflow-x-auto">
-                {hist.data.map((point, i) => (
-                  <div key={i} className="mr-4">
-                    <div>{new Date(point.date).toLocaleDateString()}</div>
-                    <div>{point.value}</div>
-                  </div>
+        <section className="mb-8">
+          <h2 className="text-xl font-semibold font-ferry mb-5">Общая сводка</h2>
+          <table className="table-auto overflow-x-scroll rounded-[20px]">
+            <thead>
+              <tr className="bg-aqua text-white">
+                <th className="border border-aqua px-4 py-2">Период</th>
+                {summaryData.data[0].data.map((point, idx) => (
+                  <th key={idx} className="border border-aqua px-4 py-2">
+                    {new Date(point.date).toLocaleDateString()}
+                  </th>
                 ))}
-              </div>
-            </div>
-          ))}
-        </div>
+              </tr>
+            </thead>
+            <tbody>
+              {summaryData.data.map((hist, idx) => (
+                <tr key={idx}>
+                  <td className="border border-aqua px-4 py-2 bg-aqua text-white font-semibold">
+                    {idx === 0 ? "Всего" : "Риски"}
+                  </td>
+                  {hist.data.map((point, i) => (
+                    <td key={i} className="border border-aqua px-4 py-2 text-center">
+                      {point.value}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
       )}
 
-      <div>
-        <h2>Публикации</h2>
-        {documents.map((doc, index) => (
-          <div key={index} className="border p-4 my-2">
-            {/* Шапка карточки: дата и источник */}
-            <div className="flex justify-between">
-              <span>{new Date(doc.issueDate).toLocaleDateString()}</span>
-              <a href={doc.url} target="_blank" rel="noopener noreferrer">
-                {doc.source.name}
-              </a>
-            </div>
-            {/* Заголовок */}
-            <h3>{doc.title.text}</h3>
-            {/* Теги в зависимости от атрибутов */}
-            <div>
-              {doc.attributes?.isTechNews && <span>Технические новости </span>}
-              {doc.attributes?.isAnnouncement && <span>Анонсы и события </span>}
-              {doc.attributes?.isDigest && <span>Сводки новостей</span>}
-            </div>
-            {/* Содержимое публикации */}
-            <p>{doc.content.markup}</p>
-            {/* Футер карточки: кнопка и количество слов */}
-            <div className="flex justify-between">
-              <button onClick={() => window.open(doc.url, "_blank")}>
-                Читать в источнике
-              </button>
-              <span>{doc.attributes?.wordCount} слова</span>
-            </div>
-          </div>
-        ))}
+      <section>
+        <h2 className="text-2xl font-ferry font-semibold mb-4">Список документов</h2>
+        <div className="grid grid-cols-2 gap-6">
+          {documents.map((doc, idx) => (
+            <article
+              key={idx}
+              className="shadow-lg rounded-xl p-6 bg-white flex flex-col justify-between overflow-hidden"
+            >
+              <header className="text-sm text-gray mb-2">
+                <span>{new Date(doc.issueDate).toLocaleDateString()}</span>
+                <a
+                  href={doc.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-2 underline"
+                >
+                  {doc.source.name}
+                </a>
+              </header>
+
+              <h3 className="text-2xl font-semibold mb-2">{doc.title.text}</h3>
+
+              <div className="mb-2">
+                {doc.attributes?.isTechNews && (
+                  <span className="inline-block bg-orange text-white text-xs px-2 py-1 rounded">
+                    Технические новости
+                  </span>
+                )}
+                {doc.attributes?.isAnnouncement && (
+                  <span className="inline-block bg-orange text-white text-xs px-2 py-1 rounded ml-1">
+                    Анонсы и события
+                  </span>
+                )}
+                {doc.attributes?.isDigest && (
+                  <span className="inline-block bg-orange text-white text-xs px-2 py-1 rounded ml-1">
+                    Сводки новостей
+                  </span>
+                )}
+              </div>
+
+              {doc.content.image && (
+                <img
+                  src={doc.content.image}
+                  alt={doc.title.text}
+                  className="rounded-lg object-cover w-full h-40 mb-3"
+                />
+              )}
+
+              <p className="text-gray flex-grow mb-4">
+                 {cleanAndTruncate(doc.content.markup)}
+              </p>
+
+              <footer className="flex justify-between items-center text-sm text-gray">
+                <button
+                  onClick={() => window.open(doc.url, "_blank")}
+                  className="bg-lightAqua px-4 py-2 text-black rounded-lg hover:opacity-90 transition"
+                >
+                  Читать в источнике
+                </button>
+                <span>{doc.attributes?.wordCount} слова</span>
+              </footer>
+            </article>
+          ))}
+        </div>
 
         {isLoadingDocs && <div>Загрузка документов...</div>}
 
-        {loadedCount < publicationIds.length && !isLoadingDocs && (
-          <button onClick={handleLoadMore}>Показать больше</button>
+        {!isLoadingDocs && loadedCount < publicationIds.length && (
+          <button onClick={handleLoadMore} className="w-full bg-violet text-white py-2 px-4 rounded-md">Показать больше</button>
         )}
-      </div>
+      </section>
     </div>
   );
 }

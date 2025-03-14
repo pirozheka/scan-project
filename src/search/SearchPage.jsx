@@ -89,7 +89,7 @@ export default function SearchPage() {
         const formattedDateFrom = dateFrom + "T00:00:00+03:00";
         const formattedDateTo = dateTo + "T23:59:59+03:00";
       
-        const requestData = {
+        const searchParams = {
           issueDateInterval: {
             startDate: formattedDateFrom,
             endDate: formattedDateTo,
@@ -110,24 +110,13 @@ export default function SearchPage() {
               tonality: tonality,
               onlyWithRiskFactors: onlyWithRiskFactors,
             },
-            themesFilter: {
-              and: [],
-              or: [],
-              not: [],
-            },
-          },
-          searchArea: {
-            includedSources: [],
-            excludedSources: [],
-            includedSourceGroups: [],
-            excludedSourceGroups: [],
           },
           attributeFilters: {
             excludeTechNews: !techNews,
             excludeAnnouncements: !announcements,
             excludeDigests: !newsDigests,
           },
-          similarMode: "duplicates",
+          similarMode: "none",
           limit: Number(documentCount),
           sortType: "sourceInfluence",
           sortDirectionType: "desc",
@@ -135,28 +124,7 @@ export default function SearchPage() {
           histogramTypes: ["totalDocuments", "riskFactors"],
         };
       
-        try {
-          const response = await fetch(
-            "https://gateway.scan-interfax.ru/api/v1/objectsearch/histograms",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Accept: "application/json",
-                Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-              },
-              body: JSON.stringify(requestData),
-            }
-          );
-      
-          if (response.ok) {
-            navigate("/search/results", { state: { searchParams: requestData } });
-          } else {
-            console.error("Ошибка при поиске:", response.statusText);
-          }
-        } catch (err) {
-          console.error("Ошибка при поиске:", err);
-        }
+        navigate("/search/results", { state: { searchParams }});
       };
 
     return (
